@@ -1,0 +1,59 @@
+---
+title: "Sampling IMBDb data"
+author: "Stats 306 Instructional Team"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+set.seed(209481352)
+```
+
+
+```{r}
+title_ratings <- read_tsv("title.ratings.tsv.gz")
+title_ratings_sample <- sample_n(title_ratings, 100000)
+rm(title_ratings)
+```
+
+```{r}
+
+```
+```{r}
+# name_basics <- read_tsv("name.basics.tsv.gz")
+title_basics <- read_tsv("title.basics.tsv.gz")
+title_basics_sample <- semi_join(title_basics, title_ratings_sample, "tconst")
+rm(title_basics)
+```
+
+
+```{r}
+title_principals <- read_tsv("title.principals.tsv.gz")
+```
+
+
+```{r}
+title_principals_sample <- semi_join(title_principals, title_basics_sample, "tconst")
+```
+
+```{r}
+rm(title_principals)
+```
+
+
+```{r}
+name_basics <- read_tsv("name.basics.tsv.gz")
+name_basics_sample <- semi_join(name_basics, title_principals_sample, "nconst")
+```
+
+```{r}
+write_csv(title_basics_sample, "title_basics_sample.csv.gz")
+write_csv(title_principals_sample, "title_principals_sample.csv.gz")
+write_csv(title_ratings_sample, "title_ratings_sample.csv.gz")
+write_csv(name_basics_sample, "name_basics_sample.csv.gz")
+
+```
+
+

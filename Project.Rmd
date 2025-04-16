@@ -1,0 +1,93 @@
+---
+title: "DataSci 306 Final Project"
+author: "DataSci 306 Instructional Team"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Investigating the Internet Movie Database (IMDB)
+
+The [Internet Movie Database (IMDb)]() contains information on millions of movies and television programs. They offer several [non-commercial use datasets](https://developer.imdb.com/non-commercial-datasets/) (documentation link). For this project we will analyze a **sample** of 100,000 titles from the IMDBb. 
+
+
+## Part I: Preprocessing
+
+* [Edit your `.gitignore` file](https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files) to ignore all files with the `.rda` extension. (Add and commit)
+* Create a new file in the `data/` directory called "Preprocessing.Rmd". The remaining instructions in this section are to be completed in that file.
+* Write a function that will load a table from the IMDb files in the `data/` directory.
+  * The function should take the file name (without the ".csv.gz" portion) as an argument
+  * The function should load the appropriate `.csv.gz` file.
+  * Make sure that all "\\N" values (which IMDB uses to indicate missing values) are turned into proper NA values in R
+  * The function should return the table.
+* For each of the `.csv.gz` files, use your function to load the table, then save it into a variable (e.g. `name_basics <- preprocess("name_basics")`) and use the `write_rds` function (e.g., `write_rds(name_basics, "name_basics.rda")`.
+* Run the function on all of the `*_sample.csv.gz` files to created processed `.rda` files.
+* In your other files, you can load these using the `TABLE <- read_rds("data/FILENAME.rda")` function.
+
+## Part II: EDA of individual tables
+
+* For each of the 4 tables, perform basic exploratory data analysis. Report the following information:
+  * For each quantitative column, provide some summary statistics
+  * For any character columns, decided if they are actually representing factors/categorical data with a moderate number of columns. If so report the distributions for these variables.
+  * Provide a plot for each table. Across all of the plots, try to show off the most possible different ggplot features (`geoms_` functions, `stat_` functions, coordinate systems, facets, use of several variables, annotations)
+* For the `titles_basics` table
+  * use two different variables to group and explore how `runtimeMinutes` varies for these different groups. Produce appropriate summaries.
+  * How many titles are known for name that is different than the original release name?
+  * Graph the conditional distributions of release year based on the previous results. Comment on any trends you observe.
+* For the ratings, use the `cut` function to break the data into three groups based on the average ratings. Are higher rated titles rated more often or less often than lower rated titles? 
+* For the names table, 
+  * Count the number of titles each person is known for and plot this distribution.
+  * investigate the age of cast members
+      * Group the data into living and deceased cast members. 
+      * For deceased cast members, provide a graph that shows the distribution of ages.
+      * Do the same for living cast members.
+* Find all the actors with first names "Tom", "Thomas", "Thom" or "Tomas". How many are there?
+* How many titles use alliteration (i.e., all words in the title start with the same letter)?
+
+## Part III: Pivoting
+
+* Create a new version of the `titles_basics` table that has one row for each title-genre combination. See the `separate_rows` function for a useful too here.
+* Using that table, create a line plot of the count different genres over time (you may limit this to the most common genres if you wish).
+* Use the `model.matrix` function in the following way: `model.matrix(yourtalltable, ~ genre - 1)` to create a wide table with one column for each genre. Use this table to find the most common pair of genres (hint: use the `cor` function or produce facet plots)
+
+## Part IV: Joining Tables
+
+* Join the table with one title-genre per row from the previous section with the ratings table.
+  * What is the highest rated genre? What is the lowest rated genre?
+  * Using stacked bar charts, investigate the proportions of different genres over time. Are any incresing or decreasing? Use factor functions to help make the plots easier to read.
+* Join the `title_basics` with the ratings table. Have the number of ratings changed over time (based on release year)? Display graphically but also answer with numerical results.
+* Join the names with the ratings and the principals table. 
+  * Group by individual people, find the top ten people based on the median rating of the titles they appear in.
+  * Find the proportions of genres for the the titles that include the top 10 rated principals.
+  * Graph ratings against years. What trends do you see?
+* Create a table with one row for each person in the `name_basics` table and title they are known for. Join this to the ratings table to get the ratings of the "known for" films. Find the person (or people) who have the highest median known for rating.
+* 
+
+## Part V: Profiling and Parallel Processing
+
+* These are large data sets (and yet only a sample of the entire IMDb!), so it make sense spend some time improving our code.
+* Pick one or more of the previous problems and profile the performance of that piece. Write up your findings. If you see any opportunities to improve performance, feel fee to implement than and share the results.
+* Select a previous computation that could be improved using parallelization and implement a parallelization solution. Using `system.time` show that parallelization improves performance.
+* One task we performed involved counting items in strings separated by commas. Propose two different functions that could perform this taks. Compare them using bench marking. Which version would you recommend?
+
+## Part VI: Shiny Applications
+
+### Application 1
+
+Using results from the previous section, create a shiny application that allows users to interact with the with the IMDb data. The application should use both interactive graphs and at least 3 widgets.
+
+### Application 2
+
+In the principals table, there is a `category` column. Use this column as a primary filter to allow users to then select specific job categories. After select the specific job categories, display information from another table.
+
+## Extra Credit: 6 Degrees of Kevin Bacon
+
+Create an app to allow users to play [Six Degrees of Kevin Bacon](https://en.wikipedia.org/wiki/Six_Degrees_of_Kevin_Bacon#:~:text=Six%20Degrees%20of%20Kevin%20Bacon%20or%20Bacon's%20Law%20is%20a,ultimately%20leads%20to%20prolific%20American).
+
+Create a Shiny application where a person can type the primary title of movie or TV show. Then have app show all the people who had a role in the show. Let the user select a person in that cast and show all other people who have been in a title with that person. Repeat up to 6 times. If "Kevin Bacon" (`nconst == 'nm0000102'`) ever appears in the list, let the player know they have won! If they click more than 6 times, let them know they have lost.
+
+

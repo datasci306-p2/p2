@@ -1,0 +1,39 @@
+---
+title: "IMDB Non-Commercial Data"
+author: "DataSci 306 Instructional Team"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+The [Internet Movie Database (IMDb)]() contains information on millions of movies and television programs. They offer several [non-commercial use datasets](https://developer.imdb.com/non-commercial-datasets/).
+
+These data are quite numerous, included with the this project is a random sample of 100,000 titles (movies/TV programs), along with all all the ratings associated with those titles, all principals (actors) involved in the production, and some basic demographics about those actors. More details on the pre-processing can be found in the `/original` folder in this directory. Due to size constraints, the original data is not included in this repository, but you can down load the `.tsv.gz` files from the link above if you wish to recreate these files.
+
+## Tables
+
+The data will require additional arguments to the `read_csv` to properly handle how missing data is coded. These code chunk is provide as an example only.
+
+```{r cache = TRUE}
+title_basics <- read_csv('title_basics_sample.csv.gz')
+title_principals <- read_csv('title_principals_sample.csv.gz')
+title_ratings <- read_csv('title_ratings_sample.csv.gz')
+names_basics <- read_csv('name_basics_sample.csv.gz')
+```
+
+## Columns
+
+Please refer to the [IMDb documentation on columns names and their meanings](https://developer.imdb.com/non-commercial-datasets/). Take special note of columns that are used as primary and secondary keys.
+
+```{r}
+colnames(title_basics)
+colnames(title_principals)
+colnames(title_ratings)
+colnames(names_basics)
+```
+
+
