@@ -1,0 +1,28 @@
+```{r library}
+library(tidyverse)
+
+```
+
+
+```{r}
+preprocess <- function(file_name) {
+  path <- file.path("data", paste0(file_name, ".csv.gz"))
+  df <- read_csv(path, na = "\\N")  
+  return(df)
+}
+```
+
+```{r loop-process}
+file_names <- c(
+  "name_basics_sample",
+  "title_basics_sample",
+  "title_principals_sample",
+  "title_ratings_sample"
+)
+
+for (file in file_names) {
+  data <- preprocess(file)
+  write_rds(data, paste0(file, ".rda")) 
+}
+
+```
