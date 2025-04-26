@@ -6,7 +6,7 @@ library(tidyverse)
 
 ```{r}
 preprocess <- function(file_name) {
-  path <- file.path("data", paste0(file_name, ".csv.gz"))
+  path <- file.path(paste0(file_name, ".csv.gz"))
   df <- read_csv(path, na = "\\N")  
   return(df)
 }

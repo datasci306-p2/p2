@@ -291,21 +291,193 @@ ggplot(filter(name_basics, !is_deceased), aes(x = age)) +
 ## Part III: Pivoting
 
 * Create a new version of the `titles_basics` table that has one row for each title-genre combination. See the `separate_rows` function for a useful too here.
+
+```{r 3a}
+#colnames(title_basics)
+titles_basics_long = title_basics %>%
+  separate_rows(genres, sep = ",")
+```
 * Using that table, create a line plot of the count different genres over time (you may limit this to the most common genres if you wish).
+```{r 3b}
+#pulls top 5 genres
+top_genres = titles_basics_long %>%
+  count(genres, sort = TRUE) %>%
+  top_n(5, n) %>%
+  pull(genres)
+
+genre_trends = titles_basics_long %>%
+  filter(genres %in% top_genres) %>%
+  filter(!is.na(startYear) & startYear != "\\N") %>%
+  mutate(startYear = as.integer(startYear)) %>%
+  group_by(startYear, genres) %>%
+  summarise(count = n(), .groups = "drop")
+
+ggplot(genre_trends, aes(x = startYear, y = count, color = genres)) +
+  geom_line(size = 0.5) +
+  labs(title = "Top 5 Genre Trends Over Time",
+       x = "Year",
+       y = "Number of Titles",
+       color = "Genre")
+```
 * Use the `model.matrix` function in the following way: `model.matrix(yourtalltable, ~ genre - 1)` to create a wide table with one column for each genre. Use this table to find the most common pair of genres (hint: use the `cor` function or produce facet plots)
+```{r 3c}
+genre_matrix = model.matrix(~ genres - 1, data = titles_basics_long)
+genre_cors = cor(genre_matrix)
+#doesnt include genreNA
+top_genre_pairs = as.data.frame(as.table(genre_cors)) %>%
+  filter(Var1 != Var2) %>%
+  filter(!str_detect(Var1, "NA") & !str_detect(Var2, "NA")) %>%
+  mutate(pair = pmap_chr(list(Var1, Var2), ~ paste(sort(c(..1, ..2)), collapse = " & "))) %>%
+  distinct(pair, .keep_all = TRUE) %>%
+  select(pair, correlation = Freq) %>%
+  arrange(desc(correlation)) 
+
+head(top_genre_pairs, 5)
+```
+The genresFilm-Noir and genresMusical are the most positively correlated with a correlation of -0.001197310.
 
 ## Part IV: Joining Tables
 
 * Join the table with one title-genre per row from the previous section with the ratings table.
   * What is the highest rated genre? What is the lowest rated genre?
   * Using stacked bar charts, investigate the proportions of different genres over time. Are any incresing or decreasing? Use factor functions to help make the plots easier to read.
+  
+```{r 4a}
+#colnames(titles_basics_long)
+#colnames(title_ratings)
+
+# joins the two tables
+titles_with_ratings = titles_basics_long |>
+  inner_join(title_ratings, by = "tconst")
+
+mean_votes = titles_with_ratings |> 
+  filter(!is.na(genres)) |>
+  group_by(genres) |>
+  summarise(mean_votes_per_genre = mean(numVotes, na.rm = TRUE)) |>
+  arrange(desc(mean_votes_per_genre)) 
+  
+  head(mean_votes,1) # genre with most votes
+  tail(mean_votes,2) # bottom 2 genres
+  
+titles_with_ratings |>
+  filter(startYear != "\\N") |>
+  mutate(startYear = as.integer(startYear)) |>
+  group_by(startYear, genres) |>
+  summarize(n = n()) |>
+  group_by(startYear) |>
+  mutate(prop = n / sum(n)) |>
+  ggplot(aes(x = startYear, y = prop, fill = fct_lump(genres, n = 8))) +   #lump rare genres into "Other"
+  geom_col() +
+  labs(title = "Genre proportions over time",
+       x = "Year", y = "Proportion",
+       fill = "Genre") 
+
+```
+The highest rated genre is Sci-Fi. The lowest rated genre is NA. The lowest rated genre that isn't NA is Adult. Looking at genre proportions over time, the proportion of short films are decreasing while the proportion of animation is increasing.   
+
 * Join the `title_basics` with the ratings table. Have the number of ratings changed over time (based on release year)? Display graphically but also answer with numerical results.
+```{r 4b}
+#colnames(title_basics)
+#colnames(title_ratings)
+
+#join the tables
+titles_with_ratings_short = title_basics |>
+  inner_join(title_ratings, by = "tconst")
+
+votes_per_year = titles_with_ratings_short |>
+  filter(startYear != "\\N") |>
+  mutate(startYear = as.integer(startYear)) |>
+  group_by(startYear) |>
+  summarise(total_votes = sum(numVotes,na.rm = TRUE)) 
+
+votes_per_year |>
+  ggplot(aes(x = startYear, y = total_votes)) +
+  geom_col() +
+  labs(title = "Total Votes per Year",
+       x = "Year", y = "Total Votes") 
+
+votes_per_year |>
+  arrange(desc(total_votes)) |>
+  head(10)    #most rated 10 years
+
+votes_per_year |>
+  arrange(total_votes) |>
+  head(10)    #least rated 10 years
+
+votes_per_year |>
+  mutate(startYear = as.integer(startYear)) |>
+  filter(startYear > 2011) |>
+  summarise(mean_votes = mean(total_votes))
+
+```
+The number of ratings increased until 2011 with 7004647	ratings. However, the number of ratings is dropping since with an average of 2859065	per year after 2011.  
+
 * Join the names with the ratings and the principals table. 
   * Group by individual people, find the top ten people based on the median rating of the titles they appear in.
   * Find the proportions of genres for the the titles that include the top 10 rated principals.
   * Graph ratings against years. What trends do you see?
+```{r 4c}
+colnames(name_basics)
+colnames(title_ratings)
+colnames(title_principals)
+
+#join the 3 tables
+names_ratings_princ = title_principals |>
+  inner_join(name_basics, by = "nconst") |>
+  inner_join(title_ratings, by = "tconst")
+
+#top ten people based on the median rating of the titles they appear in
+top_10_people = names_ratings_princ |>
+  group_by(nconst, primaryName) |>
+  summarise(med_rating = median(numVotes, na.rm = TRUE)) |>
+  arrange(desc(med_rating)) |>
+  head(10)
+
+top_10_people
+
+genre_proportions = title_principals |>
+  filter(nconst %in% top_10_people$nconst) |>
+  inner_join(titles_basics_long, by = "tconst", relationship = "many-to-many") |> 
+  group_by(genres) |>
+  summarize(count = n()) |>
+  mutate(proportion = count / sum(count)) #Calculate proportions of genres for the top 10 rated principals
+
+genre_proportions
+
+#Plot the ratings against years
+names_ratings_princ |>
+  filter(nconst %in% top_10_people$nconst) |>
+  inner_join(titles_basics_long, by = "tconst", relationship = "many-to-many") |>
+  ggplot(aes(x = startYear, y = averageRating)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(title = "Ratings of Titles Featuring Top 10 Rated Principals Over Time",
+       x = "Release Year",
+       y = "Average Rating") +
+  theme_minimal()
+
+
+
+```
+The ratings of the titles that these top 10 people were in are increasing as the release years increase.
+
 * Create a table with one row for each person in the `name_basics` table and title they are known for. Join this to the ratings table to get the ratings of the "known for" films. Find the person (or people) who have the highest median known for rating.
-* 
+
+```{r 4d}
+known_for_titles = name_basics |>
+  separate_rows(knownForTitles, sep = ",") |>
+  inner_join(title_basics, by = c("knownForTitles" = "tconst")) |>
+  select(nconst, primaryName, knownForTitles)
+
+known_for_titles
+
+#people who have the highest known for rating
+known_for_titles |>
+  inner_join(title_ratings,  by = c("knownForTitles" = "tconst")) |> #join with ratings table
+  group_by(nconst, primaryName) |>
+  summarize(median_rating = median(averageRating, na.rm = TRUE), .groups = "drop") |>
+  filter(median_rating == max(median_rating))
+```
 
 ## Part V: Profiling and Parallel Processing
 
