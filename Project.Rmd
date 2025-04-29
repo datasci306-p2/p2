@@ -483,14 +483,75 @@ known_for_titles |>
 
 * These are large data sets (and yet only a sample of the entire IMDb!), so it make sense spend some time improving our code.
 * Pick one or more of the previous problems and profile the performance of that piece. Write up your findings. If you see any opportunities to improve performance, feel fee to implement than and share the results.
+
+For profiling, I selected the task that calculates the average rating by year. This operation groups the data by the year a movie was released and then calculates the mean rating for each group. When I profiled this task using system.time(), I found that it took a significant amount of time to complete, likely because of the large number of unique years and the overall size of the IMDb data set. Since grouping and summarizing across such a big data set is computationally intensive, this makes sense. To improve the performance, a good next step would be to switch to a faster grouping method, like using data.table.
+
+```{r}
+# Step 1: Profiling average rating by year
+system.time({
+  avg_rating_by_year <- imdb_data %>%
+    group_by(year) %>%
+    summarise(avg_rating = mean(rating, na.rm = TRUE))
+})
+```
+
 * Select a previous computation that could be improved using parallelization and implement a parallelization solution. Using `system.time` show that parallelization improves performance.
-* One task we performed involved counting items in strings separated by commas. Propose two different functions that could perform this taks. Compare them using bench marking. Which version would you recommend?
+
+For parallelization, I selected the task that calculates the average rating by top star. This task goes through each unique top-billed actor or actress and calculates the average movie rating for their movies. Because each star’s data is independent of the others, it is a good candidate for parallel computing. By using multiple cores, each star's data can be processed at the same time, speeding up the task. I used parLapply from the parallel package to parallelize this operation, and compared the execution time using system.time() to confirm that performance improved.
+
+```{r}
+# Step 2: Parallelizing average rating by top star
+library(parallel)
+system.time({
+  num_cores <- detectCores() - 1
+  cl <- makeCluster(num_cores)
+  clusterExport(cl, list("imdb_data"))
+  
+  avg_rating_by_top_star <- parLapply(cl, unique(imdb_data$top_star), function(star) {
+    imdb_data %>%
+      filter(top_star == star) %>%
+      summarise(avg_rating = mean(rating, na.rm = TRUE))
+  })
+  
+  stopCluster(cl)
+})
+```
+
+* One task we performed involved counting items in strings separated by commas. Propose two different functions that could perform this tasks. 
+Compare them using bench marking. Which version would you recommend?
+
+For the comma-separated genre counting, I proposed two different functions. The first function uses strsplit() to split each genre string by commas and then length() to count how many genres each movie has. The second function uses a tidyverse method where separate_rows() splits the genres into multiple rows and group_by() with summarise() counts the number of genres per movie. I benchmarked both methods using the bench package. Based on the results, the strsplit() method was significantly faster and more memory-efficient. Because the task only requires simple counting and not full restructuring, I would recommend using the strsplit() method.
+
+```{r}
+# Step 3: Benchmarking two methods for counting comma-separated genres
+library(bench)
+
+# Method 1: Using strsplit and length
+count_genres_split <- function(data) {
+  sapply(strsplit(data$genres, ","), length)
+}
+
+# Method 2: Using tidyverse separate_rows
+count_genres_separate <- function(data) {
+  data %>%
+    separate_rows(genres, sep = ",") %>%
+    group_by(movie_id) %>%
+    summarise(genre_count = n())
+}
+
+# Benchmarking both methods
+bench::mark(
+  split_method = count_genres_split(imdb_data),
+  separate_method = count_genres_separate(imdb_data)
+)
+```
 
 ## Part VI: Shiny Applications
 
 ### Application 1
 
 Using results from the previous section, create a shiny application that allows users to interact with the with the IMDb data. The application should use both interactive graphs and at least 3 widgets.
+
 
 ### Application 2
 
