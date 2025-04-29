@@ -1,6 +1,6 @@
 ---
 title: "DataSci 306 Final Project"
-author: "DataSci 306 Instructional Team"
+author: "Howard Chen, Timothy Wang, Camila Garcia"
 date: "`r Sys.Date()`"
 output: html_document
 ---
