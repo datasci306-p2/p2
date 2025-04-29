@@ -8,6 +8,9 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(profvis)
+library(parallel)
+library(bench)
 ```
 
 ## Investigating the Internet Movie Database (IMDB)
@@ -484,14 +487,16 @@ known_for_titles |>
 * These are large data sets (and yet only a sample of the entire IMDb!), so it make sense spend some time improving our code.
 * Pick one or more of the previous problems and profile the performance of that piece. Write up your findings. If you see any opportunities to improve performance, feel fee to implement than and share the results.
 
-For profiling, I selected the task that calculates the average rating by year. This operation groups the data by the year a movie was released and then calculates the mean rating for each group. When I profiled this task using system.time(), I found that it took a significant amount of time to complete, likely because of the large number of unique years and the overall size of the IMDb data set. Since grouping and summarizing across such a big data set is computationally intensive, this makes sense. To improve the performance, a good next step would be to switch to a faster grouping method, like using data.table.
+  For profiling, I focused on a step from Part 4, where we filtered names_ratings_princ for the top 10 people (principals) and joined it with titles_basics_long to later plot average ratings against release years. The profiling results showed that the filtering was very fast, using about 2.6 MB of memory and taking around 20 milliseconds. The inner_join, which connects the filtered actors to their titles, was a little heavier, using about 8 MB of memory and taking around 10 milliseconds for each part. Overall, the performance was efficient for the size of our dataset.
+  Since this step is part of creating a plot (ggplot) of ratings over time, it makes sense that we needed both the actor and title information joined together. If the dataset were larger, we could improve performance by pre-filtering titles_basics_long to only the necessary titles before joining, or by using a semi_join if we only needed to match without carrying over extra columns. For the current data, though, the processing is already fast and no major changes are necessary.
 
-```{r}
-# Step 1: Profiling average rating by year
-system.time({
-  avg_rating_by_year <- imdb_data %>%
-    group_by(year) %>%
-    summarise(avg_rating = mean(rating, na.rm = TRUE))
+```{r, eval = FALSE}
+# Step 1: Profiling average rating of titles featuring principals on Part IV
+library(profvis)
+profvis({
+    names_ratings_princ |>
+    filter(nconst %in% top_10_people$nconst) |>
+    inner_join(titles_basics_long, by = "tconst", relationship = "many-to-many")
 })
 ```
 
@@ -501,19 +506,27 @@ For parallelization, I selected the task that calculates the average rating by t
 
 ```{r}
 # Step 2: Parallelizing average rating by top star
-library(parallel)
+
 system.time({
+  # Set up parallelization
   num_cores <- detectCores() - 1
   cl <- makeCluster(num_cores)
-  clusterExport(cl, list("imdb_data"))
   
-  avg_rating_by_top_star <- parLapply(cl, unique(imdb_data$top_star), function(star) {
-    imdb_data %>%
+  # Export relevant data frame to the cluster
+  clusterExport(cl, list("names_ratings_princ", "titles_basics_long"))
+  
+  # Parallel computation of average rating by top star
+  avg_rating_by_top_star <- parLapply(cl, unique(names_ratings_princ$top_star), function(star) {
+    # Filter by top star and compute the average rating
+    ratings_for_star <- names_ratings_princ %>%
       filter(top_star == star) %>%
+      inner_join(titles_basics_long, by = "tconst") %>%
       summarise(avg_rating = mean(rating, na.rm = TRUE))
+    
+    return(ratings_for_star)
   })
   
-  stopCluster(cl)
+  stopCluster(cl)  # Close the cluster after parallelization
 })
 ```
 
